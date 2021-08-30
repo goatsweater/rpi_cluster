@@ -1,0 +1,55 @@
+---
+
+- hosts: k3s_cluster
+  gather_facts: yes
+  become: yes
+  tasks:
+    # - name: Add remote authorized key to allow future passwordless logins
+    #   authorized_key: 
+    #     key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_rsa.pub') }}"
+    #     user: pi
+    #     state: present
+    
+    - name: Set hostname
+      block:
+        - name: Update hosts file
+          ansible.builtin.replace:
+            path: /etc/hosts
+            regexp: '(\s+)raspberrypi(\s+.*)?$'
+            replace: '\1{{ desired_hostname }}\2'
+    
+        - name: Set the hostname
+          ansible.builtin.hostname:
+            name: "{{ desired_hostname }}"
+
+    - name: Activating 64bit support
+      lineinfile:
+        path: /boot/config.txt
+        insertafter: EOF
+        state: present
+        line: 'arm_64bit=1'
+      notify: reboot
+    
+    - name: Activating POE fan support
+      blockinfile:
+        path: /boot/config.txt
+        state: present
+        marker: "# {mark} PoE Hat Fan Speeds"
+        block: |
+          dtoverlay=rpi-poe-plus
+          dtparam=poe_fan_temp0=45000,poe_fan_temp0_hyst=3000
+          dtparam=poe_fan_temp1=50000,poe_fan_temp1_hyst=3000
+          dtparam=poe_fan_temp2=62000,poe_fan_temp2_hyst=4000
+          dtparam=poe_fan_temp3=70000,poe_fan_temp3_hyst=5000
+        notify: reboot
+
+    - name: Update packages
+      apt: 
+        update_cache: yes
+        cache_valid_time: 3600
+        upgrade: dist
+  
+  handlers:
+    - name: reboot
+      reboot:
+  

@@ -1,0 +1,37 @@
+---
+
+- hosts: localhost
+  gather_facts: no
+  vars:
+    mount_path: /Volumes
+  tasks:
+    - name: Enable ssh
+      ansible.builtin.file:
+        path: "{{ mount_path }}/boot/ssh"
+        state: touch
+    
+    - name: Activating cgroup support
+      lineinfile:
+        path: "{{ mount_path }}/boot/cmdline.txt"
+        regexp: '^((?!.*\bcgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory\b).*)$'
+        line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+        backrefs: true
+    
+    - name: Activating 64bit support
+      lineinfile:
+        path: "{{ mount_path }}/boot/config.txt"
+        insertafter: EOF
+        state: present
+        line: 'arm_64bit=1'
+    
+    - name: Activating POE fan support
+      blockinfile:
+        path: "{{ mount_path }}/boot/config.txt"
+        state: present
+        marker: "# {mark} PoE Hat Fan Speeds"
+        block: |
+          dtoverlay=rpi-poe-plus
+          dtparam=poe_fan_temp0=45000,poe_fan_temp0_hyst=3000
+          dtparam=poe_fan_temp1=50000,poe_fan_temp1_hyst=3000
+          dtparam=poe_fan_temp2=62000,poe_fan_temp2_hyst=4000
+          dtparam=poe_fan_temp3=70000,poe_fan_temp3_hyst=5000
